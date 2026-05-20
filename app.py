@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
 
 # -----------------------------
 # PAGE CONFIG
@@ -16,19 +15,12 @@ st.set_page_config(
 # -----------------------------
 # LOAD MODEL & SCALER
 # -----------------------------
-@st.cache_resource
-def load_model():
-    model = joblib.load("churn_model.pkl")
-    scaler = joblib.load("scaler.pkl")
-    return model, scaler
+# Make sure these files are in the same folder:
+# 1. churn_model.pkl
+# 2. scaler.pkl
 
-try:
-    model, scaler = load_model()
-    model_loaded = True
-except FileNotFoundError:
-    model_loaded = False
-    st.warning("⚠️ Model files not found. Running in demo mode (predictions will be simulated). "
-               "Please add `churn_model.pkl` and `scaler.pkl` to the root directory.")
+model = joblib.load("churn_model.pkl")
+scaler = joblib.load("scaler.pkl")
 
 # -----------------------------
 # TITLE
@@ -125,19 +117,15 @@ st.subheader("📌 Customer Input Data")
 st.write(input_df)
 
 # -----------------------------
-# SCALE & PREDICT
+# SCALE DATA
 # -----------------------------
-if model_loaded:
-    scaled_data = scaler.transform(input_df)
-    prediction = model.predict(scaled_data)
-    prediction_proba = model.predict_proba(scaled_data)
-else:
-    # Demo mode: simulate prediction based on customer_calls heuristic
-    customer_calls_val = input_df['customer.calls'].values[0]
-    intl_plan_val = input_df['intl.plan_yes'].values[0]
-    churn_score = min(0.95, (customer_calls_val * 0.08) + (intl_plan_val * 0.15) + 0.1)
-    prediction = [1 if churn_score > 0.5 else 0]
-    prediction_proba = [[1 - churn_score, churn_score]]
+scaled_data = scaler.transform(input_df)
+
+# -----------------------------
+# PREDICTION
+# -----------------------------
+prediction = model.predict(scaled_data)
+prediction_proba = model.predict_proba(scaled_data)
 
 # -----------------------------
 # OUTPUT
@@ -155,11 +143,12 @@ else:
 st.subheader("📊 Prediction Probability")
 
 prob_df = pd.DataFrame({
-    'No Churn Probability': [round(prediction_proba[0][0], 4)],
-    'Churn Probability': [round(prediction_proba[0][1], 4)]
+    'No Churn Probability': [prediction_proba[0][0]],
+    'Churn Probability': [prediction_proba[0][1]]
 })
 
 st.write(prob_df)
+
 st.bar_chart(prob_df.T)
 
 # -----------------------------
